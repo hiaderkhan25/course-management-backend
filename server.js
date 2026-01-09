@@ -245,22 +245,6 @@ app.get('/api/students', async (req, res) => {
     }
 });
 
-// ============ DATABASE RESET ENDPOINT ============
-app.post('/api/reset-database', async (req, res) => {
-    try {
-        await db.initializeDatabase();
-        res.json({
-            success: true,
-            message: 'Database reset successfully'
-        });
-    } catch (error) {
-        console.error('Reset database error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error resetting database'
-        });
-    }
-});
 
 // ============ HEALTH CHECK ============
 app.get('/health', async (req, res) => {

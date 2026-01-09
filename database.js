@@ -9,22 +9,16 @@ const pool = new Pool({
     }
 });
 
-// Initialize database tables (SIMPLIFIED VERSION)
+// ONLY create tables if they don't exist (NO DROPPING!)
 const initializeDatabase = async () => {
     try {
-        console.log('🔄 Initializing CMS database...');
+        console.log('🔄 Checking CMS database structure...');
         
-        // ========== CREATE SIMPLIFIED TABLES ==========
+        // ========== CREATE TABLES IF THEY DON'T EXIST ==========
         
-        // 1. DROP existing tables if they exist (in correct order due to foreign keys)
-        await pool.query('DROP TABLE IF EXISTS enrollments CASCADE');
-        await pool.query('DROP TABLE IF EXISTS courses CASCADE');
-        await pool.query('DROP TABLE IF EXISTS students CASCADE');
-        console.log('✅ Old tables dropped');
-        
-        // 2. CREATE STUDENTS TABLE (No authentication needed)
+        // 1. CREATE STUDENTS TABLE IF NOT EXISTS
         await pool.query(`
-            CREATE TABLE students (
+            CREATE TABLE IF NOT EXISTS students (
                 student_id VARCHAR(20) PRIMARY KEY,
                 full_name VARCHAR(100) NOT NULL,
                 current_semester INTEGER NOT NULL,
@@ -33,11 +27,11 @@ const initializeDatabase = async () => {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
-        console.log('✅ Students table created');
+        console.log('✅ Students table ready');
         
-        // 3. CREATE COURSES TABLE (10 courses - 5 each semester)
+        // 2. CREATE COURSES TABLE IF NOT EXISTS (10 courses)
         await pool.query(`
-            CREATE TABLE courses (
+            CREATE TABLE IF NOT EXISTS courses (
                 course_code VARCHAR(10) PRIMARY KEY,
                 course_name VARCHAR(150) NOT NULL,
                 description TEXT,
@@ -49,11 +43,11 @@ const initializeDatabase = async () => {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
-        console.log('✅ Courses table created');
+        console.log('✅ Courses table ready');
         
-        // 4. CREATE ENROLLMENTS TABLE
+        // 3. CREATE ENROLLMENTS TABLE IF NOT EXISTS
         await pool.query(`
-            CREATE TABLE enrollments (
+            CREATE TABLE IF NOT EXISTS enrollments (
                 enrollment_id SERIAL PRIMARY KEY,
                 student_id VARCHAR(20) REFERENCES students(student_id) ON DELETE CASCADE,
                 course_code VARCHAR(10) REFERENCES courses(course_code) ON DELETE CASCADE,
@@ -63,19 +57,18 @@ const initializeDatabase = async () => {
                 CONSTRAINT unique_enrollment UNIQUE (student_id, course_code)
             )
         `);
-        console.log('✅ Enrollments table created');
+        console.log('✅ Enrollments table ready');
         
-        // ========== INSERT DEFAULT DATA ==========
+        // ========== INSERT DEFAULT DATA ONLY IF EMPTY ==========
         
-        // 5. INSERT DEFAULT STUDENT (Muhammad Haider)
+        // 4. INSERT DEFAULT STUDENT ONLY IF NOT EXISTS
         await pool.query(`
             INSERT INTO students (student_id, full_name, current_semester, email, phone) 
             VALUES ('CSC-23S-061', 'Muhammad Haider', 6, 'haider@example.com', '0300-1234567')
             ON CONFLICT (student_id) DO NOTHING
         `);
-        console.log('✅ Default student inserted: Muhammad Haider (CSC-23S-061)');
         
-        // 6. INSERT 6TH SEMESTER COURSES (5 courses)
+        // 5. INSERT 6TH SEMESTER COURSES ONLY IF NOT EXISTS
         const semester6Courses = [
             ['CSC-601', 'Mobile App Development', 'Android and iOS application development with modern frameworks', 6, 'Sir Abid Ali', 35],
             ['CSC-602', 'Technical and Business Writing', 'Professional documentation and business communication skills', 6, 'Dr Muhammad Nawaz', 30],
@@ -91,9 +84,8 @@ const initializeDatabase = async () => {
                 ON CONFLICT (course_code) DO NOTHING
             `, course);
         }
-        console.log('✅ 6th Semester courses inserted (5 courses)');
         
-        // 7. INSERT 7TH SEMESTER COURSES (5 courses)
+        // 6. INSERT 7TH SEMESTER COURSES ONLY IF NOT EXISTS
         const semester7Courses = [
             ['CSC-701', 'Cloud Computing', 'AWS, Azure, and cloud deployment strategies', 7, 'Prof. Lisa Martinez', 35],
             ['CSC-702', 'Cyber Security', 'Network security, cryptography, and ethical hacking', 7, 'Dr. James Anderson', 40],
@@ -109,25 +101,23 @@ const initializeDatabase = async () => {
                 ON CONFLICT (course_code) DO NOTHING
             `, course);
         }
-        console.log('✅ 7th Semester courses inserted (5 courses)');
         
-        // ========== VERIFY DATA ==========
+        // ========== VERIFY CURRENT DATA ==========
         
         const studentCount = await pool.query('SELECT COUNT(*) FROM students');
         const courseCount = await pool.query('SELECT COUNT(*) FROM courses');
         const enrollmentCount = await pool.query('SELECT COUNT(*) FROM enrollments');
         
-        console.log('\n📊 DATABASE SUMMARY:');
+        console.log('\n📊 DATABASE STATUS:');
         console.log(`   Students: ${studentCount.rows[0].count}`);
-        console.log(`   Courses: ${courseCount.rows[0].count} (10 total)`);
+        console.log(`   Courses: ${courseCount.rows[0].count}`);
         console.log(`   Enrollments: ${enrollmentCount.rows[0].count}`);
         
-        console.log('\n✅ Database initialization COMPLETE!');
-        console.log('🎯 Ready to accept API requests...');
+        console.log('\n✅ Database is READY!');
+        console.log('💾 Data will PERSIST across server restarts');
         
     } catch (error) {
-        console.error('❌ Database initialization error:', error.message);
-        console.error('Stack:', error.stack);
+        console.error('❌ Database setup error:', error.message);
     }
 };
 
@@ -137,7 +127,6 @@ const testConnection = async () => {
         const client = await pool.connect();
         console.log('✅ Connected to Neon PostgreSQL database');
         
-        // Test query
         const result = await client.query('SELECT NOW() as current_time');
         console.log(`   Database Time: ${result.rows[0].current_time}`);
         
@@ -156,9 +145,6 @@ const initialize = async () => {
         await initializeDatabase();
     }
 };
-
-// Call initialize on require (for server startup)
-initialize();
 
 // Export query method and pool
 module.exports = {
